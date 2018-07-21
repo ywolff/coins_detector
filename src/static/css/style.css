@@ -1,0 +1,14 @@
+#conteneur
+{
+    display: flex;
+}
+
+.element {
+    flex: 1;
+    text-align: center;
+}
+
+body {
+    background-color: #f8f9fa;
+    color: #404040;
+}

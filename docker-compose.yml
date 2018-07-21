@@ -1,0 +1,6 @@
+coins:
+  build: .
+  ports:
+  - 1234:1234
+  volumes:
+  - .:/app

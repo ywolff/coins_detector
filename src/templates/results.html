@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>TOTEM</title>
+    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+</head>
+<body>
+    <div id="conteneur">
+        <div class="element">
+            <h3>Results</h3>
+            <div class="row">
+                <h4><b>Detector</b> : "{{ detector_name }}"</h4>
+                <div>
+                    <img src="/{{ output_image_path }}" alt="Result image" height="300" />
+                </div>
+            </div>
+            <div class="row">
+                <hr />
+                <h4>You have <b>{{ total_value }}</b></h4>
+                <h5>Detected coins:</h5>
+                {% for count, value in detected_coins_summary %}
+                    <div
+                        style="color: {{ format_CSS_RGB_color(COINS_LEGEND_COLORS[value]) }}"
+                    >
+                        {{ count }} x {{ COINS_LABELS[value] }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
