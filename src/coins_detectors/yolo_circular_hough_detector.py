@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
 
-from src.constants.coins import COINS_DIAMETERS
+from src.constants.coins import COINS_DIAMETERS, SIMILAR_COINS
 from .yolo_detector import YoloDetector
 
 
 class YoloCircularHoughDetector(YoloDetector):
-    name = 'YOLO v3 + Circular Hough'
+    name = 'YOLO + Circular Hough'
 
     def detect(self, image_path, biggest_radius_coin_value=None):
         assert biggest_radius_coin_value is not None
@@ -24,9 +24,14 @@ class YoloCircularHoughDetector(YoloDetector):
                 circle_in_initial_image = self.compute_circle_in_initial_image(
                     main_circle_in_cropped_image, x1, y1)
                 all_circles.append(circle_in_initial_image)
+            else:
+                all_circles.append(None)
 
-        coins = self.get_coins_from_circles(
-            all_circles, biggest_radius_coin_value)
+        coins = self.get_coins_from_yolo_coins_and_circles(
+            yolo_detected_coins,
+            all_circles,
+            biggest_radius_coin_value,
+        )
 
         return coins
 
@@ -72,32 +77,40 @@ class YoloCircularHoughDetector(YoloDetector):
         return x1 + center_x, y1 + center_y, radius
 
     @classmethod
-    def get_coins_from_circles(cls, circles, biggest_radius_coin_value):
+    def get_coins_from_yolo_coins_and_circles(cls, yolo_detected_coins, circles, biggest_radius_coin_value):
         coins = []
         biggest_radius_in_px = 0
 
-        for center_x, center_y, radius in circles:
-            if radius > biggest_radius_in_px:
-                biggest_radius_in_px = radius
-            coins.append({
-                'center_x': center_x,
-                'center_y': center_y,
-                'radius': radius,
-            })
+        for yolo_coin, circle in zip(yolo_detected_coins, circles):
+            if circle is None:
+                coins.append(yolo_coin)
+            else:
+                center_x, center_y, radius = circle
+                if radius > biggest_radius_in_px:
+                    biggest_radius_in_px = radius
+                coins.append({
+                    'center_x': center_x,
+                    'center_y': center_y,
+                    'radius': radius,
+                })
 
         biggest_radius_in_mm = COINS_DIAMETERS[biggest_radius_coin_value] / 2
         px_per_mm = biggest_radius_in_px / biggest_radius_in_mm
 
-        for coin in coins:
-            coin['value'] = cls.get_coin_value_from_circle_radius_in_mm(
-                coin['radius'] / px_per_mm)
+        for coin, yolo_detected_coin in zip(coins, yolo_detected_coins):
+            print(yolo_detected_coin['value'], flush=True)
+            if 'value' not in coin:
+                possible_values = SIMILAR_COINS[yolo_detected_coin['value']]
+                coin['value'] = cls.get_coin_value_from_circle_radius_in_mm(
+                    coin['radius'] / px_per_mm, possible_values)
+                print(f"=> {coin['value']}", flush=True)
 
         return coins
 
     @staticmethod
-    def get_coin_value_from_circle_radius_in_mm(radius_in_mm):
+    def get_coin_value_from_circle_radius_in_mm(radius_in_mm, possible_values):
         min_radius_diff = None
-        for coin_value in COINS_DIAMETERS:
+        for coin_value in possible_values:
             radius_diff = abs(COINS_DIAMETERS[coin_value] / 2 - radius_in_mm)
             if min_radius_diff is None or radius_diff < min_radius_diff:
                 min_radius_diff = radius_diff
