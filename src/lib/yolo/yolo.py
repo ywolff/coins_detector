@@ -25,7 +25,7 @@ class YOLO(object):
         self.model_path = weights_path
         self.anchors_path = anchors_path
         self.classes_path = classes_path
-        self.score = 0.3
+        self.score = 0.05
         self.iou = 0.45
         self.class_names = self._get_class()
         self.anchors = self._get_anchors()
