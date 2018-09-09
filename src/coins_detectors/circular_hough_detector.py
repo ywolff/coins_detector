@@ -11,7 +11,7 @@ class CircularHoughDetector(CoinsDetector):
     def detect(self, image_path, biggest_radius_coin_value=None):
         assert biggest_radius_coin_value is not None
         preprocessed_image = self.preprocess(image_path)
-        circles = self.compute_circles(preprocessed_image, self.parameters)
+        circles = self.compute_circles(preprocessed_image)
         coins = self.get_coins_from_circles(circles, biggest_radius_coin_value)
 
         return coins
@@ -19,21 +19,21 @@ class CircularHoughDetector(CoinsDetector):
     def preprocess(self, image_path):
         image = cv2.imread(image_path)
         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred_image = cv2.medianBlur(gray_image, self.parameters['hough_median_blur_aperture_size'])
+        blurred_image = cv2.medianBlur(
+            gray_image, self.parameters['hough_median_blur_aperture_size'])
 
         return blurred_image
 
-    @staticmethod
-    def compute_circles(image, parameters):
+    def compute_circles(self, image):
         circles = cv2.HoughCircles(
             image,
             cv2.HOUGH_GRADIENT,
-            dp=parameters['hough_circles_dp'],
-            minDist=parameters['hough_circles_min_dist'],
-            param1=parameters['hough_circles_param1'],
-            param2=parameters['hough_circles_param2'],
-            minRadius=parameters['hough_circles_min_radius'],
-            maxRadius=parameters['hough_circles_max_radius']
+            dp=self.parameters['hough_circles_dp'],
+            minDist=self.parameters['hough_circles_min_dist'],
+            param1=self.parameters['hough_circles_param1'],
+            param2=self.parameters['hough_circles_param2'],
+            minRadius=self.parameters['hough_circles_min_radius'],
+            maxRadius=self.parameters['hough_circles_max_radius']
         )
 
         return np.uint16(np.around(circles)) if circles is not None else None
@@ -57,7 +57,8 @@ class CircularHoughDetector(CoinsDetector):
         px_per_mm = biggest_radius_in_px / biggest_radius_in_mm
 
         for coin in coins:
-            coin['value'] = cls.get_coin_value_from_circle_radius_in_mm(coin['radius'] / px_per_mm)
+            coin['value'] = cls.get_coin_value_from_circle_radius_in_mm(
+                coin['radius'] / px_per_mm)
 
         return coins
 

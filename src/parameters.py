@@ -38,4 +38,40 @@ PARAMETERS = {
 
     'hough_circles_max_radius': 0,
     # Maximum circle radius.
+
+
+    # Yolo + Hough
+    ##############
+
+    'crops_margin_ratio': 0.3,
+    # Margin ratio relative to the width or height (respectively for horizontal and vertical margins) of the bounidng box
+    # used for cropping around the coin
+
+    'yolo_hough_median_blur_aperture_size': 5,
+    # Aperture linear size for median blur preprocessing used before Circular yolo_Hough.
+    # It must be odd and greater than 1.
+
+    'yolo_hough_circles_dp': 1,
+    # Inverse ratio of the accumulator resolution to the image resolution.
+    # For example, if dp=1 , the accumulator has the same resolution as the input image.
+    # If dp=2 , the accumulator has half as big width and height
+
+    'yolo_hough_circles_min_dist': 50,
+    # Minimum distance between the centers of the detected circles.
+    # If the parameter is too small, multiple neighbor circles may be falsely detected in addition to a true one.
+    # If it is too large, some circles may be missed.
+
+    'yolo_hough_circles_param1': 200,
+    # It is the higher threshold of the two passed to the Canny() edge detector (the lower one is twice smaller).
+
+    'yolo_hough_circles_param2': 8,
+    # It is the accumulator threshold for the circle centers at the detection stage.
+    # The smaller it is, the more false circles may be detected.
+    # Circles, corresponding to the larger accumulator values, will be returned first.
+
+    'yolo_hough_circles_min_radius': 20,
+    # Minimum circle radius.
+
+    'yolo_hough_circles_max_radius': 150,
+    # Maximum circle radius.
 }
