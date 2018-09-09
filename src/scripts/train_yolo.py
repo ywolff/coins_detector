@@ -19,24 +19,69 @@ from src.utils.list_utils import int_list_to_str_list
 
 
 @click.command()
-@click.option('--data_path', required=True, help='Path to images data')
+@click.option('--train_images_path', required=True, help='Path to train images')
+@click.option('--val_images_path', required=True, help='Path to val images')
+@click.option('--train_annotations_path', required=True, help='Path to train annotations')
+@click.option('--val_annotations_path', required=True, help='Path to val annotations')
 @click.option('--log_dir', default='logs/yolo', help='Log directory for tensorboard and weights')
 @click.option('--batch_size', default=16, help='Size of the batch')
 @click.option('--n_epochs', default=50, help='Number of epochs to perform')
 @click.option('--load_pretrained', default=False, help='Should start from pretrained model')
 @click.option('--weights_path', help='Path to weights')
-def train_command(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_path=None):
-    train(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_path)
+def train_command(
+        train_images_path,
+        val_images_path,
+        train_annotations_path,
+        val_annotations_path,
+        log_dir,
+        batch_size,
+        n_epochs,
+        load_pretrained,
+        weights_path=None):
+    train(
+        train_images_path,
+        val_images_path,
+        train_annotations_path,
+        val_annotations_path,
+        log_dir,
+        batch_size,
+        n_epochs,
+        load_pretrained,
+        weights_path
+    )
 
 
-def train(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_path=None):
+def train(train_images_path,
+          val_images_path,
+          train_annotations_path,
+          val_annotations_path,
+          log_dir,
+          batch_size,
+          n_epochs,
+          load_pretrained,
+          weights_path=None):
     now = datetime.now()
-    classes_file_name = 'yolo_classes_' + now.strftime('%Y-%m-%d_%H-%M-%S') + '.txt'
+    classes_file_name = 'yolo_classes_' + \
+        now.strftime('%Y-%m-%d_%H-%M-%S') + '.txt'
     classes_path = os.path.join('src/weights', classes_file_name)
-    box_annotations_file_name = 'yolo_box_annotations_' + now.strftime('%d%m%Y') + '.txt'
-    box_annotations_path = os.path.join('.', box_annotations_file_name)
+    yolo_train_annotations_file_name = 'yolo_train_annotations_' + \
+        now.strftime('%Y-%m-%d_%H-%M-%S') + '.txt'
+    yolo_val_annotations_file_name = 'yolo_val_annotations_' + \
+        now.strftime('%Y-%m-%d_%H-%M-%S') + '.txt'
+    yolo_train_annotations_path = os.path.join(
+        '.', yolo_train_annotations_file_name)
+    yolo_val_annotations_path = os.path.join(
+        '.', yolo_val_annotations_file_name)
 
-    convert_annotations(data_path, box_annotations_path, classes_path)
+    convert_annotations(
+        train_images_path,
+        val_images_path,
+        train_annotations_path,
+        val_annotations_path,
+        yolo_train_annotations_file_name,
+        yolo_val_annotations_file_name,
+        classes_path
+    )
 
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
@@ -54,7 +99,8 @@ def train(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_pat
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(
-        os.path.join(log_dir, 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5'),
+        os.path.join(
+            log_dir, 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5'),
         monitor='val_loss',
         save_weights_only=True,
         save_best_only=True,
@@ -67,12 +113,10 @@ def train(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_pat
         verbose=1
     )
 
-    val_split = 0.1
-    with open(box_annotations_path) as f:
-        lines = f.readlines()
-
-    num_val = int(len(lines) * val_split)
-    num_train = len(lines) - num_val
+    with open(yolo_train_annotations_file_name) as yolo_train_annotations_file:
+        yolo_train_annotations = yolo_train_annotations_file.readlines()
+    with open(yolo_val_annotations_file_name) as yolo_val_annotations_file:
+        yolo_val_annotations = yolo_val_annotations_file.readlines()
 
     n_epochs_general_training = 5
 
@@ -81,12 +125,13 @@ def train(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_pat
         loss={'yolo_loss': lambda y_true, y_pred: y_pred}
     )
 
-    print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
     model.fit_generator(
-        data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
-        steps_per_epoch=max(1, num_train // batch_size),
-        validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
-        validation_steps=max(1, num_val // batch_size),
+        data_generator_wrapper(
+            yolo_train_annotations, batch_size, input_shape, anchors, num_classes),
+        steps_per_epoch=max(1, len(yolo_train_annotations) // batch_size),
+        validation_data=data_generator_wrapper(
+            yolo_val_annotations, batch_size, input_shape, anchors, num_classes),
+        validation_steps=max(1, len(yolo_val_annotations) // batch_size),
         epochs=n_epochs_general_training,
         initial_epoch=0,
         callbacks=[logging, checkpoint]
@@ -101,37 +146,58 @@ def train(data_path, log_dir, batch_size, n_epochs, load_pretrained, weights_pat
     )
     print('Unfreeze all of the layers.')
 
-    print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
     model.fit_generator(
-        data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
-        steps_per_epoch=max(1, num_train // batch_size),
-        validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
-        validation_steps=max(1, num_val // batch_size),
+        data_generator_wrapper(
+            yolo_train_annotations, batch_size, input_shape, anchors, num_classes),
+        steps_per_epoch=max(1, len(yolo_train_annotations) // batch_size),
+        validation_data=data_generator_wrapper(
+            yolo_val_annotations, batch_size, input_shape, anchors, num_classes),
+        validation_steps=max(1, len(yolo_val_annotations) // batch_size),
         epochs=n_epochs,
         initial_epoch=n_epochs_general_training + 1,
         callbacks=[logging, checkpoint, reduce_lr]
     )
 
 
-def convert_annotations(data_path, box_annotation_path, classes_path):
-    """ Merge annotation files (json) from a folder into an appropriate
-    annotation file for YOLO training. This file looks like:
+def convert_annotations(train_images_path,
+                        val_images_path,
+                        train_annotations_path,
+                        val_annotations_path,
+                        yolo_train_annotations_output_path,
+                        yolo_val_annotations_output_path,
+                        classes_path):
+    """ Merge annotation files (json) from a folder into appropriate
+    annotations files for YOLO training. These files looks like:
     image_id, x0,y0,x1,y1,class_id_1 x0,y0,x1,y1,class_id_2
+
+    # Arguments
+        - {train|val}_images_path: path to the folder containing the input images for the {training|validation} set
+        - {train|val}_annotations_path: path to the file containing the labels of the images
+            for the {training|validation} set (contents and containers on the same line)
+        - yolo_{train|val}_annotations_path: path where this script will write the yolo-formatted annotations
+        - classes_path: path to the file containing the yolo classes that the training will output
+    # Returns: none
     """
     annotations_table = {}
     annotations_reverse_table = {}
     annotation_index = 0
 
     annotations_final = {}
-    annotations_path = os.path.join(data_path, 'annotations')
-    for path in os.listdir(annotations_path):
-        print(path)
-        if '.json' not in path:
-            continue
+    for images_path, annotations_path, yolo_dataset_annotations_output_path in [
+        (train_images_path, train_annotations_path,
+            yolo_train_annotations_output_path),
+        (val_images_path, val_annotations_path,
+            yolo_val_annotations_output_path),
+    ]:
+        with open(yolo_dataset_annotations_output_path, 'a') as yolo_dataset_annotations_output_file:
+            for file_name in sorted(os.listdir(annotations_path)):
+                print(file_name)
+                if '.json' not in file_name:
+                    continue
 
-        with open(os.path.join(annotations_path, path)) as f:
-            images_annotations_json = json.load(f)
-            annotated_containers = images_annotations_json['annotation']['object']
+                image_annotations_json = json.load(
+                    open(os.path.join(annotations_path, file_name)))
+                annotated_containers = image_annotations_json['annotation']['object']
             formatted_annotations = []
             for container in annotated_containers:
                 container_name = container['name']
@@ -142,18 +208,24 @@ def convert_annotations(data_path, box_annotation_path, classes_path):
 
                 container_points = container['polygon']['pt']
 
-                min_x, min_y, max_x, max_y = get_bounding_box(container_points)
+                min_x, min_y, max_x, max_y = get_bounding_box(
+                    container_points)
 
-                formatted_annotations.append((min_x, min_y, max_x, max_y, annotations_table[container_name]))
+                formatted_annotations.append(
+                    (min_x, min_y, max_x, max_y, annotations_table[container_name]))
 
-        path_to_image = os.path.join(data_path, os.path.splitext(path)[0] + ".jpg")
-        annotations_final[path_to_image] = formatted_annotations
+                path_to_image = os.path.join(
+                    images_path, os.path.splitext(file_name)[0] + ".jpg")
+                annotations_final[path_to_image] = formatted_annotations
 
-    with open(box_annotation_path, 'a') as f:
-        for path in annotations_final:
-            annotations_str = [",".join(int_list_to_str_list(list(annot))) for annot in annotations_final[path]]
-            line_annotations = path + " " + " ".join(annotations_str)
-            f.write(line_annotations + '\n')
+                image_annotations_strings = [
+                    ",".join(int_list_to_str_list(list(annotation)))
+                    for annotation in formatted_annotations
+                ]
+                image_annotations_line = path_to_image + \
+                    " " + " ".join(image_annotations_strings)
+                yolo_dataset_annotations_output_file.write(
+                    image_annotations_line + '\n')
 
     with open(classes_path, 'a') as f:
         for key in sorted(annotations_reverse_table):
