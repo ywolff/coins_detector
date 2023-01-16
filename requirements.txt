@@ -10,7 +10,7 @@ imgaug==0.2.5
 Jinja2==2.10
 Keras==2.1.5
 matplotlib==2.2.2
-numpy==1.14.3
+numpy==1.22.0
 opencv-python==3.4.1.15
 Pillow==5.1.0
 requests==2.18.4
